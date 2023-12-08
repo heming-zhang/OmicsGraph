@@ -1,0 +1,20 @@
+# pycache
+/__pycache__/*
+**.DS_Store
+**.pdf
+**.h5
+**.pyc
+
+# vscode json files
+.vscode/
+
+# Remove the deserted files
+/desert/
+
+# Remove raw data files
+/UCSC-raw/
+/UCSC-process/
+/Regulatory-network-data/
+
+# Remove the processed data files
+/graph-data/form_data/

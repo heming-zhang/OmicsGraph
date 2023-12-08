@@ -1,1 +1,1 @@
-# UCSC-OmicsKG
+# UCSC-KG
