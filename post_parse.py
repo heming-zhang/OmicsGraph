@@ -53,8 +53,21 @@ def split_k_fold(k, graph_output_folder):
 # LoadData().load_adj_edgeindex(graph_output_folder)
 
 ################ MOUDLE 3 ################
-# FORM N-TH FOLD TRAINING DATASET
-k = 5
+# # FORM N-TH FOLD TRAINING DATASET
+# k = 5
+# n_fold = 1
+# graph_output_folder = 'graph-data'
+# LoadData().load_train_test(k, n_fold, graph_output_folder)
+
+# Check the default ratio of survival
 n_fold = 1
 graph_output_folder = 'graph-data'
-LoadData().load_train_test(k, n_fold, graph_output_folder)
+form_data_path = './' + graph_output_folder + '/form_data'
+yTr =  np.load(form_data_path + '/yTr' + str(n_fold) + '.npy')
+num_elements = yTr.size
+num_ones = np.count_nonzero(yTr) # Dead is one
+num_zeros = num_elements - num_ones # Alive is zero
+ratio_of_ones = num_ones / num_elements
+ratio_of_zeros = num_zeros / num_elements
+print("Ratio of Dead:", ratio_of_ones)
+print("Ratio of Alive:", ratio_of_zeros)

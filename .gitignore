@@ -18,3 +18,6 @@
 
 # Remove the processed data files
 /graph-data/form_data/
+
+# Ignore the result
+/result/
