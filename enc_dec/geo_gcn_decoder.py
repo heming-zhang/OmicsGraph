@@ -59,10 +59,10 @@ class GCNDecoder(nn.Module):
         self.x_norm_block = nn.BatchNorm1d(hidden_dim)
         self.x_norm_last = nn.BatchNorm1d(embedding_dim)
 
-        # Simple aggregations:
+        # Simple aggregations
         self.mean_aggr = aggr.MeanAggregation()
         self.max_aggr = aggr.MaxAggregation()
-        # Learnable aggregations:
+        # Learnable aggregations
         self.softmax_aggr = aggr.SoftmaxAggregation(learn=True)
         self.powermean_aggr = aggr.PowerMeanAggregation(learn=True)
 
@@ -97,17 +97,16 @@ class GCNDecoder(nn.Module):
 
 
     def loss(self, output, label):
-        # Use weight vector to balance the loss
-        weight_vector = torch.zeros([2]).to(device='cuda')
-        label = label.long()
         # Calculating unique values
         unique_classes = torch.unique(label)
         num_classes = len(unique_classes)
+        # Use weight vector to balance the loss
+        weight_vector = torch.zeros([num_classes]).to(device='cuda')
+        label = label.long()
         for i in range(num_classes):
             n_samplei = torch.sum(label == i)
             weight_vector[i] = len(label) / (n_samplei)
         # Calculate the loss
-        # import pdb; pdb.set_trace()
         output = torch.log_softmax(output, dim=-1)
         loss = F.nll_loss(output, label, weight_vector)
         return loss

@@ -7,7 +7,7 @@ from torch_geometric.nn import MessagePassing
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool, GlobalAttention, Set2Set
 from torch_geometric.nn.inits import glorot, zeros
 from torch_geometric.utils import add_self_loops, degree, softmax
-
+from torch_geometric.nn import aggr
 
 # GAT torch_geometric implementation
 #Adapted from https://github.com/snap-stanford/pretrain-gnns
@@ -73,8 +73,9 @@ class GATConv(MessagePassing):
 
 
 class GATDecoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, embedding_dim, decoder_dim, num_head, device):
+    def __init__(self, input_dim, hidden_dim, embedding_dim, node_num, num_head, device):
         super(GATDecoder, self).__init__()
+        self.node_num = node_num
         self.num_head = num_head
         self.embedding_dim = embedding_dim
         self.conv_first, self.conv_block, self.conv_last = self.build_conv_layer(
@@ -82,13 +83,19 @@ class GATDecoder(nn.Module):
         
         self.act = nn.ReLU()
         self.act2 = nn.LeakyReLU(negative_slope=0.1)
-        
-        self.parameter1 = torch.nn.Parameter(torch.randn(embedding_dim, decoder_dim).to(device='cuda'))
-        self.parameter2 = torch.nn.Parameter(torch.randn(decoder_dim, decoder_dim).to(device='cuda'))
 
         self.x_norm_first = nn.BatchNorm1d(hidden_dim)
         self.x_norm_block = nn.BatchNorm1d(hidden_dim)
         self.x_norm_last = nn.BatchNorm1d(embedding_dim)
+
+        # Simple aggregations
+        self.mean_aggr = aggr.MeanAggregation()
+        self.max_aggr = aggr.MaxAggregation()
+        # Learnable aggregations
+        self.softmax_aggr = aggr.SoftmaxAggregation(learn=True)
+        self.powermean_aggr = aggr.PowerMeanAggregation(learn=True)
+
+        self.graph_prediction = torch.nn.Linear(embedding_dim, 2)
 
 
     def build_conv_layer(self, input_dim, hidden_dim, embedding_dim):
@@ -97,7 +104,8 @@ class GATDecoder(nn.Module):
         conv_last = GATConv(input_dim=hidden_dim, embed_dim=embedding_dim, num_head=self.num_head)
         return conv_first, conv_block, conv_last
 
-    def forward(self, x, edge_index, drug_index):
+    def forward(self, x, edge_index):
+        # import pdb; pdb.set_trace()
         x = self.conv_first(x, edge_index)
         x = self.x_norm_first(x)
         x = self.act2(x)
@@ -109,31 +117,25 @@ class GATDecoder(nn.Module):
         x = self.conv_last(x, edge_index)
         x = self.x_norm_last(x)
         x = self.act2(x)
-        
-        # import pdb; pdb.set_trace()
-        # x = torch.reshape(x, (-1, self.node_num, self.embedding_dim))
-        drug_index = torch.reshape(drug_index, (-1, 2))
 
-        # EMBEDDING DECODER TO [ypred]
-        batch_size, drug_num = drug_index.shape
-        ypred = torch.zeros(batch_size, 1).to(device='cuda')
-        for i in range(batch_size):
-            drug_a_idx = int(drug_index[i, 0]) - 1
-            drug_b_idx = int(drug_index[i, 1]) - 1
-            drug_a_embedding = x[drug_a_idx]
-            drug_b_embedding = x[drug_b_idx]
-            product1 = torch.matmul(drug_a_embedding, self.parameter1)
-            product2 = torch.matmul(product1, self.parameter2)
-            product3 = torch.matmul(product2, torch.transpose(self.parameter1, 0, 1))
-            output = torch.matmul(product3, drug_b_embedding.reshape(-1, 1))
-            ypred[i] = output
-        print(torch.sum(self.parameter1))
-        return ypred
+        # Embedding decoder to [ypred]
+        x = x.view(-1, self.node_num, self.embedding_dim)
+        x = self.powermean_aggr(x).view(-1, self.embedding_dim)
+        output = self.graph_prediction(x)
+        _, ypred = torch.max(output, dim=1)
+        return output, ypred
 
-    def loss(self, pred, label):
-        pred = pred.to(device='cuda')
-        label = label.to(device='cuda')
-        loss = F.mse_loss(pred.squeeze(), label)
-        # print(pred)
-        # print(label)
+    def loss(self, output, label):
+        # Calculating unique values
+        unique_classes = torch.unique(label)
+        num_classes = len(unique_classes)
+        # Use weight vector to balance the loss
+        weight_vector = torch.zeros([num_classes]).to(device='cuda')
+        label = label.long()
+        for i in range(num_classes):
+            n_samplei = torch.sum(label == i)
+            weight_vector[i] = len(label) / (n_samplei)
+        # Calculate the loss
+        output = torch.log_softmax(output, dim=-1)
+        loss = F.nll_loss(output, label, weight_vector)
         return loss

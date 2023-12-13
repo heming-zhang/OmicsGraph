@@ -53,9 +53,9 @@ def arg_parse():
                         parallel = False,
                         add_self = '0', # 'add'
                         model = '0', # 'load'
-                        lr = 0.01,
+                        lr = 0.05,
                         clip = 2.0,
-                        batch_size = 768,
+                        batch_size = 1024,
                         num_workers = 1,
                         num_epochs = 100,
                         input_dim = 8,
@@ -105,7 +105,7 @@ def build_geogcn_model(args, device, graph_output_folder):
 
 
 def train_geogcn_model(dataset_loader, model, device, args, learning_rate):
-    optimizer = torch.optim.Adam(filter(lambda p : p.requires_grad, model.parameters()), lr=learning_rate, eps=1e-7, weight_decay=1e-6)
+    optimizer = torch.optim.Adam(filter(lambda p : p.requires_grad, model.parameters()), lr=learning_rate, eps=1e-7, weight_decay=1e-10)
     batch_loss = 0
     for batch_idx, data in enumerate(dataset_loader):
         optimizer.zero_grad()
@@ -116,6 +116,11 @@ def train_geogcn_model(dataset_loader, model, device, args, learning_rate):
         loss = model.loss(output, label)
         loss.backward()
         batch_loss += loss.item()
+        # Compare with true labels
+        correct = (ypred == label).sum().item()
+        # Calculate accuracy
+        accuracy = correct / label.size(0)
+        print(f'Batch Accuracy: {accuracy * 100:.2f}%')
         nn.utils.clip_grad_norm_(model.parameters(), args.clip)
         optimizer.step()
     return model, batch_loss, ypred
@@ -149,12 +154,12 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
     # Record epoch loss and accuracy correlation
     if args.model != 'load':
         iteration_num = 0
-    max_test_corr = 0
-    max_test_corr_id = 0
-    e1 = 10
-    e2 = 10
+    max_test_acc = 0
+    max_test_acc_id = 0
+    e1 = 20
+    e2 = 20
     e3 = 10
-    e4 = 30
+    e4 = 10
     epoch_loss_list = []
     epoch_acc_list = []
     test_loss_list = []
@@ -199,11 +204,10 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
             batch_ypred = (Variable(batch_ypred).data).cpu().numpy().reshape(-1, 1)
             epoch_ypred = np.vstack((epoch_ypred, batch_ypred))
         epoch_loss = np.mean(batch_loss_list)
-        print('TRAIN EPOCH ' + str(i) + ' MSE LOSS: ', epoch_loss)
+        print('TRAIN EPOCH ' + str(i) + ' LOSS: ', epoch_loss)
         epoch_loss_list.append(epoch_loss)
         epoch_ypred = np.delete(epoch_ypred, 0, axis = 0)
-        print(epoch_ypred)
-        print('ITERATION NUMBER UNTIL NOW: ' + str(iteration_num))
+        # print('ITERATION NUMBER UNTIL NOW: ' + str(iteration_num))
         # Preserve acc corr for every epoch
         score_lists = list(yTr)
         score_list = [item for elem in score_lists for item in elem]
@@ -221,11 +225,11 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
         specificity = tn / (tn+fp) if (tn+fp) != 0 else 0
         epoch_acc_list.append(accuracy)
         tmp_training_input_df.to_csv(path + '/TrainingPred_' + str(i) + '.txt', index=False, header=True)
-        print('EPOCH ' + str(i) + ' ACCURACY: ', accuracy)
-        print('EPOCH ' + str(i) + ' F1: ', f1)
-        print('EPOCH ' + str(i) + ' PRECISION: ', precision)
-        print('EPOCH ' + str(i) + ' RECALL: ', recall)
-        print('EPOCH ' + str(i) + ' SPECIFICITY: ', specificity)
+        print('EPOCH ' + str(i) + ' TRAINING ACCURACY: ', accuracy)
+        print('EPOCH ' + str(i) + ' TRAINING F1: ', f1)
+        print('EPOCH ' + str(i) + ' TRAINING PRECISION: ', precision)
+        print('EPOCH ' + str(i) + ' TRAINING RECALL: ', recall)
+        print('EPOCH ' + str(i) + ' TRAINING SPECIFICITY: ', specificity)
         print('\n-------------EPOCH TRAINING ACCURACY LIST: -------------')
         print(epoch_acc_list)
         print('\n-------------EPOCH TRAINING LOSS LIST: -------------')
@@ -234,7 +238,7 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
         # # # Test model on test dataset
         # fold_n = 1
         test_save_path = path
-        test_acc, test_loss, tmp_test_input_df = test_geogcn(prog_args, fold_n, model, test_save_path, device, graph_output_folder)
+        test_acc, test_loss, tmp_test_input_df = test_geogcn(prog_args, fold_n, model, test_save_path, device, graph_output_folder, i)
         test_acc_list.append(test_acc)
         test_loss_list.append(test_loss)
         tmp_test_input_df.to_csv(path + '/TestPred' + str(i) + '.txt', index=False, header=True)
@@ -248,13 +252,13 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
             max_test_acc_id = i
             # torch.save(model.state_dict(), path + '/best_train_model'+ str(i) +'.pt')
             torch.save(model.state_dict(), path + '/best_train_model.pt')
-        print('\n-------------BEST TEST ACCURACY MODEL ID INFO:' + str(max_test_corr_id) + '-------------')
+        print('\n-------------BEST TEST ACCURACY MODEL ID INFO:' + str(max_test_acc_id) + '-------------')
         print('--- TRAIN ---')
-        print('BEST MODEL TRAIN LOSS: ', epoch_loss_list[max_test_corr_id - 1])
-        print('BEST MODEL TRAIN ACCURACY: ', epoch_acc_list[max_test_corr_id - 1])
+        print('BEST MODEL TRAIN LOSS: ', epoch_loss_list[max_test_acc_id - 1])
+        print('BEST MODEL TRAIN ACCURACY: ', epoch_acc_list[max_test_acc_id - 1])
         print('--- TEST ---')
-        print('BEST MODEL TEST LOSS: ', test_loss_list[max_test_corr_id - 1])
-        print('BEST MODEL TEST ACCURACY: ', test_acc_list[max_test_corr_id - 1])
+        print('BEST MODEL TEST LOSS: ', test_loss_list[max_test_acc_id - 1])
+        print('BEST MODEL TEST ACCURACY: ', test_acc_list[max_test_acc_id - 1])
         torch.save(model.state_dict(), path + '/best_train_model.pt')
 
 
@@ -271,7 +275,7 @@ def test_geogcn_model(dataset_loader, model, device, args):
     return model, batch_loss, ypred
 
 
-def test_geogcn(args, fold_n, model, test_save_path, device, graph_output_folder):
+def test_geogcn(args, fold_n, model, test_save_path, device, graph_output_folder, i):
     print('-------------------------- TEST START --------------------------')
     print('-------------------------- TEST START --------------------------')
     print('-------------------------- TEST START --------------------------')
@@ -313,7 +317,7 @@ def test_geogcn(args, fold_n, model, test_save_path, device, graph_output_folder
         batch_ypred = (Variable(batch_ypred).data).cpu().numpy().reshape(-1, 1)
         all_ypred = np.vstack((all_ypred, batch_ypred))
     test_loss = np.mean(batch_loss_list)
-    print('MSE LOSS: ', test_loss)
+    print('EPOCH ' + str(i) + ' TEST LOSS: ', test_loss)
     # Preserve accuracy for every epoch
     all_ypred = np.delete(all_ypred, 0, axis = 0)
     all_ypred_lists = list(all_ypred)
@@ -330,10 +334,13 @@ def test_geogcn(args, fold_n, model, test_save_path, device, graph_output_folder
     tn, fp, fn, tp = confusion_matrix(tmp_test_input_df['label'], tmp_test_input_df['prediction']).ravel()
     specificity = tn / (tn+fp) if (tn+fp) != 0 else 0
 
-    test_pearson = tmp_test_input_df.corr(method = 'pearson')
-    print('PEARSON CORRELATION: ', test_pearson)
-    print('FOLD - ', fold_n)
-    return test_pearson, test_loss, tmp_test_input_df
+    print('EPOCH ' + str(i) + ' TEST ACCURACY: ', accuracy)
+    print('EPOCH ' + str(i) + ' TEST F1: ', f1)
+    print('EPOCH ' + str(i) + ' TEST PRECISION: ', precision)
+    print('EPOCH ' + str(i) + ' TEST RECALL: ', recall)
+    print('EPOCH ' + str(i) + ' TEST SPECIFICITY: ', specificity)
+    test_acc = accuracy
+    return test_acc, test_loss, tmp_test_input_df
 
 
 if __name__ == "__main__":
@@ -371,4 +378,5 @@ if __name__ == "__main__":
     # test_load_path = './' + graph_output_folder + '/result/epoch_60/best_train_model.pt'
     # model.load_state_dict(torch.load(test_load_path, map_location=device))
     # test_save_path = './' + graph_output_folder + '/result/epoch_60'
-    # test_geogcn(prog_args, fold_n, model, test_save_path, device, dataset)
+    # i = 60  # epoch number
+    # test_geogcn(prog_args, fold_n, model, test_save_path, device, dataset, i)
