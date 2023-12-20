@@ -53,33 +53,38 @@ def arg_parse():
                         parallel = False,
                         add_self = '0', # 'add'
                         model = '0', # 'load'
-                        lr = 0.05,
+                        lr = 0.008,
                         clip = 2.0,
-                        batch_size = 256,
+                        batch_size = 128,
                         num_workers = 1,
                         num_epochs = 100,
+                        num_head = 8,
                         input_dim = 8,
-                        hidden_dim = 24,
-                        output_dim = 24,
+                        hidden_dim = 48,
+                        output_dim = 48,
                         dropout = 0.01)
     return parser.parse_args()
 
 
 def learning_rate_schedule(args, dl_input_num, iteration_num, e1, e2, e3, e4):
+    t1 = 0.005
+    t2 = 0.001
+    t3 = 0.0005
+    t4 = 0.0001
     epoch_iteration = int(dl_input_num / args.batch_size)
-    l1 = (args.lr - 0.008) / (e1 * epoch_iteration)
-    l2 = (0.008 - 0.006) / (e2 * epoch_iteration)
-    l3 = (0.006 - 0.005) / (e3 * epoch_iteration)
-    l4 = (0.005 - 0.001) / (e4 * epoch_iteration)
-    l5 = 0.001
+    l1 = (args.lr - t1) / (e1 * epoch_iteration)
+    l2 = (t1 - t2) / (e2 * epoch_iteration)
+    l3 = (t2 - t3) / (e3 * epoch_iteration)
+    l4 = (t3 - t4) / (e4 * epoch_iteration)
+    l5 = t4
     if iteration_num <= (e1 * epoch_iteration):
         learning_rate = args.lr - iteration_num * l1
     elif iteration_num <= (e1 + e2) * epoch_iteration:
-        learning_rate = 0.008 - (iteration_num - e1 * epoch_iteration) * l2
+        learning_rate = t1 - (iteration_num - e1 * epoch_iteration) * l2
     elif iteration_num <= (e1 + e2 + e3) * epoch_iteration:
-        learning_rate = 0.006 - (iteration_num - (e1 + e2) * epoch_iteration) * l3
+        learning_rate = t2 - (iteration_num - (e1 + e2) * epoch_iteration) * l3
     elif iteration_num <= (e1 + e2 + e3 + e4) * epoch_iteration:
-        learning_rate = 0.005 - (iteration_num - (e1 + e2 + e3) * epoch_iteration) * l4
+        learning_rate = t3 - (iteration_num - (e1 + e2 + e3) * epoch_iteration) * l4
     else:
         learning_rate = l5
     print('-------LEARNING RATE: ' + str(learning_rate) + '-------' )
@@ -99,7 +104,7 @@ def build_geogat_model(args, device, graph_output_folder):
     # import pdb; pdb.set_trace()
     # Build up model
     model = GATDecoder(input_dim=args.input_dim, hidden_dim=args.hidden_dim, embedding_dim=args.output_dim, 
-                    node_num=node_num, num_head=1, device=device)
+                    node_num=node_num, num_head=args.num_head, device=device)
     model = model.to(device)
     return model
 
@@ -156,9 +161,9 @@ def train_geogat(args, fold_n, load_path, iteration_num, device, graph_output_fo
         iteration_num = 0
     max_test_acc = 0
     max_test_acc_id = 0
-    e1 = 20
+    e1 = 50
     e2 = 20
-    e3 = 10
+    e3 = 20
     e4 = 10
     epoch_loss_list = []
     epoch_acc_list = []
@@ -368,7 +373,7 @@ if __name__ == "__main__":
     # yTr = np.load('./' + graph_output_folder + '/form_data/y_split1.npy')
     dl_input_num = yTr.shape[0]
     epoch_iteration = int(dl_input_num / prog_args.batch_size)
-    start_iter_num = 100 * epoch_iteration
+    start_iter_num = prog_args.num_epochs * epoch_iteration
     train_geogat(prog_args, fold_n, load_path, start_iter_num, device, graph_output_folder)
 
     # ### Test the model

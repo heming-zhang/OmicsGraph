@@ -10,7 +10,7 @@ from torch_geometric.utils import add_self_loops, degree, softmax
 from torch_geometric.nn import aggr
 
 # GAT torch_geometric implementation
-#Adapted from https://github.com/snap-stanford/pretrain-gnns
+# Adapted from https://github.com/snap-stanford/pretrain-gnns
 class GATConv(MessagePassing):
     def __init__(self, input_dim, embed_dim, num_head=1, negative_slope=0.2, aggr="add", num_edge_type=0):
         super(GATConv, self).__init__(node_dim=0)
@@ -23,10 +23,10 @@ class GATConv(MessagePassing):
         self.negative_slope = negative_slope
 
         self.weight_linear = nn.Linear(input_dim, embed_dim,bias=False)
-        self.att = torch.nn.Parameter(torch.Tensor(1, num_head, 2 * num_head * self.k))
+        self.att = torch.nn.Parameter(torch.Tensor(1, num_head, 2 * self.k))
         self.bias = torch.nn.Parameter(torch.Tensor(embed_dim))
 
-        if num_edge_type>0:
+        if num_edge_type > 0:
             self.edge_embedding = torch.nn.Embedding(num_edge_type, embed_dim)
             nn.init.xavier_uniform_(self.edge_embedding.weight.data)
 
@@ -58,7 +58,7 @@ class GATConv(MessagePassing):
         if edge_attr is not None:
             edge_attr = edge_attr.view(-1, self.num_head, self.k)
             x_j += edge_attr
-            
+        # import pdb; pdb.set_trace()
         alpha = (torch.cat([x_i, x_j], dim=-1) * self.att).sum(dim=-1) # E * num_head
         alpha = F.leaky_relu(alpha, self.negative_slope)
         alpha = softmax(alpha, edge_index[0])
@@ -82,7 +82,7 @@ class GATDecoder(nn.Module):
                     input_dim, hidden_dim, embedding_dim)
         
         self.act = nn.ReLU()
-        self.act2 = nn.LeakyReLU(negative_slope=0.1)
+        self.act2 = nn.LeakyReLU(negative_slope=0.2)
 
         self.x_norm_first = nn.BatchNorm1d(hidden_dim)
         self.x_norm_block = nn.BatchNorm1d(hidden_dim)
