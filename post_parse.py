@@ -3,11 +3,10 @@ import re
 import numpy as np
 import pandas as pd
 
-from load_data import LoadData
+from load_data import UCSC_LoadData, ROSMAP_LoadData
 
 # Randomize the survival label
 def input_random(randomized, graph_output_folder):
-    randomized = False
     if randomized == True:
         random_survival_filtered_feature_df = survival_filtered_feature_df.sample(frac = 1).reset_index(drop=True)
         random_survival_filtered_feature_df.to_csv(os.path.join(graph_output_folder, 'random-survival-label.csv'), index=False)
@@ -32,42 +31,56 @@ def split_k_fold(k, graph_output_folder):
         print(split_input_df.shape)
 
 
-# ############## MOUDLE 1 ################
-# ### Randomize the survival label
-# randomized = False
-# graph_output_folder = 'graph-data'
-# input_random(randomized=randomized, graph_output_folder=graph_output_folder)
-# ### Split deep learning input into 5-fold
-# split_k_fold(k=5, graph_output_folder=graph_output_folder)
-# ### Load all split data into graph format
-# processed_dataset = 'UCSC-process'
-# if os.path.exists('./' +graph_output_folder + '/form_data') == False:
-#     os.mkdir('./' +graph_output_folder + '/form_data')
-# k = 5
-# batch_size = 64
-# LoadData().load_all_split(batch_size, k, processed_dataset, graph_output_folder)
+### Dataset Selection
+# dataset = 'UCSC'
+dataset = 'ROSMAP'
 
-# # ############## MOUDLE 2 ################
-# graph_output_folder = 'graph-data'
-# processed_dataset = 'UCSC-process'
-# LoadData().load_adj_edgeindex(graph_output_folder)
+############## MOUDLE 1 ################
+### Load all split data into graph format
+graph_output_folder = dataset + '-graph-data'
+processed_dataset = dataset + '-process'
+if os.path.exists('./' +graph_output_folder + '/form_data') == False:
+    os.mkdir('./' +graph_output_folder + '/form_data')
+k = 5
+batch_size = 64
+if dataset == 'UCSC':
+    UCSC_LoadData().load_all_split(batch_size, k, processed_dataset, graph_output_folder)
+elif dataset == 'ROSMAP':
+    ROSMAP_LoadData().load_all_split(batch_size, k, processed_dataset, graph_output_folder)
+
+# ############## MOUDLE 2 ################
+graph_output_folder = dataset + '-graph-data'
+processed_dataset = dataset + '-process'
+if dataset == 'UCSC':
+    UCSC_LoadData().load_adj_edgeindex(graph_output_folder)
+elif dataset == 'ROSMAP':
+    ROSMAP_LoadData().load_adj_edgeindex(graph_output_folder)
 
 ################ MOUDLE 3 ################
-# # FORM N-TH FOLD TRAINING DATASET
-# k = 5
-# n_fold = 1
-# graph_output_folder = 'graph-data'
-# LoadData().load_train_test(k, n_fold, graph_output_folder)
+# FORM N-TH FOLD TRAINING DATASET
+k = 5
+n_fold = 1
+graph_output_folder = dataset + '-graph-data'
+if dataset == 'UCSC':
+    UCSC_LoadData().load_train_test(k, n_fold, graph_output_folder)
+elif dataset == 'ROSMAP':
+    ROSMAP_LoadData().load_train_test(k, n_fold, graph_output_folder)
 
 # Check the default ratio of survival
 n_fold = 1
-graph_output_folder = 'graph-data'
+graph_output_folder = dataset + '-graph-data'
 form_data_path = './' + graph_output_folder + '/form_data'
 yTr =  np.load(form_data_path + '/yTr' + str(n_fold) + '.npy')
 num_elements = yTr.size
-num_ones = np.count_nonzero(yTr) # Dead is one
-num_zeros = num_elements - num_ones # Alive is zero
-ratio_of_ones = num_ones / num_elements
-ratio_of_zeros = num_zeros / num_elements
-print("Ratio of Dead:", ratio_of_ones)
-print("Ratio of Alive:", ratio_of_zeros)
+if dataset == 'UCSC':
+    num_ones = np.count_nonzero(yTr) # Dead is one
+    num_zeros = num_elements - num_ones # Alive is zero
+    ratio_of_ones = num_ones / num_elements
+    ratio_of_zeros = num_zeros / num_elements
+    print("Ratio of Dead:", ratio_of_ones)
+    print("Ratio of Alive:", ratio_of_zeros)
+elif dataset == 'ROSMAP':
+    unique_numbers, occurrences = np.unique(yTr, return_counts=True)
+    # To see the results
+    for number, count in zip(unique_numbers, occurrences):
+        print(f"Number {number} occurs {count} times")

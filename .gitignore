@@ -14,10 +14,14 @@
 # Remove raw data files
 /UCSC-raw/
 /UCSC-process/
+/ROSMAP-raw/
+/ROSMAP-process/
 /Regulatory-network-data/
 
 # Remove the processed data files
-/graph-data/form_data/
+/UCSC-graph-data/form_data/
+/ROSMAP-graph-data/form_data/
 
 # Ignore the result
-/result/
+/UCSC-result/
+/ROSMAP-result/
