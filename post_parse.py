@@ -32,8 +32,8 @@ def split_k_fold(k, graph_output_folder):
 
 
 ### Dataset Selection
-# dataset = 'UCSC'
-dataset = 'ROSMAP'
+dataset = 'UCSC'
+# dataset = 'ROSMAP'
 
 ############## MOUDLE 1 ################
 ### Load all split data into graph format

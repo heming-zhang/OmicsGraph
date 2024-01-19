@@ -54,7 +54,7 @@ class UCSC_LoadData():
             for row in final_annotation_gene_df.itertuples():
                 i = row[0]
                 node_type = row[3]
-                if node_type == 'Gene':
+                if node_type == 'Gene-TRAN':
                     x_input_list.append(gene_rna_list[i])
                     x_input_list.append(gene_mut_list[i])
                     x_input_list += [0.0] * 6
@@ -246,7 +246,7 @@ class ROSMAP_LoadData():
             for row in final_annotation_gene_df.itertuples():
                 i = row[0]
                 node_type = row[3]
-                if node_type == 'Gene':
+                if node_type == 'Gene-TRAN':
                     x_input_list.append(gene_rna_list[i])
                     x_input_list.append(gene_cnv_del_list[i])
                     x_input_list.append(gene_cnv_dup_list[i])
