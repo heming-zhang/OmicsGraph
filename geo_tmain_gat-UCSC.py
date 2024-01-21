@@ -58,10 +58,10 @@ def arg_parse():
                         batch_size = 128,
                         num_workers = 1,
                         num_epochs = 100,
-                        num_head = 8,
+                        num_head = 2,
                         input_dim = 8,
-                        hidden_dim = 48,
-                        output_dim = 48,
+                        hidden_dim = 24,
+                        output_dim = 24,
                         dropout = 0.01)
     return parser.parse_args()
 
@@ -104,7 +104,7 @@ def build_geogat_model(args, device, graph_output_folder):
     # import pdb; pdb.set_trace()
     # Build up model
     model = GATDecoder(input_dim=args.input_dim, hidden_dim=args.hidden_dim, embedding_dim=args.output_dim, 
-                    node_num=node_num, num_head=args.num_head, device=device)
+                    node_num=node_num, num_head=args.num_head, device=device, num_class=num_class)
     model = model.to(device)
     return model
 
@@ -131,7 +131,7 @@ def train_geogat_model(dataset_loader, model, device, args, learning_rate):
     return model, batch_loss, ypred
 
 
-def train_geogat(args, fold_n, load_path, iteration_num, device, graph_output_folder):
+def train_geogat(args, fold_n, load_path, iteration_num, device, graph_output_folder, num_class):
     # Training dataset basic parameters
     # [num_feature, num_node]
     num_feature = 8
@@ -171,12 +171,12 @@ def train_geogat(args, fold_n, load_path, iteration_num, device, graph_output_fo
     test_acc_list = []
     # Clean result previous epoch_i_pred files
     folder_name = 'epoch_' + str(epoch_num)
-    path = './result/%s' % (folder_name)
+    path = './' + dataset + '-result/%s' % (folder_name)
     unit = 1
-    while os.path.exists('./result') == False:
-        os.mkdir('./result')
+    while os.path.exists('./' + dataset + '-result') == False:
+        os.mkdir('./' + dataset + '-result')
     while os.path.exists(path):
-        path = './result/%s_%d' % (folder_name, unit)
+        path = './' + dataset + '-result/%s_%d' % (folder_name, unit)
         unit += 1
     os.mkdir(path)
     # import pdb; pdb.set_trace()
@@ -361,6 +361,9 @@ if __name__ == "__main__":
     # Single gpu
     prog_args.gpu_ids = [0]
     os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+
+    # Dataset Selection
+    dataset = 'UCSC'
     
     ### Train the model
     # Train [FOLD-1x]
@@ -368,20 +371,12 @@ if __name__ == "__main__":
     # prog_args.model = 'load'
     # load_path = './result/epoch_60_1/best_train_model.pt'
     load_path = ''
-    graph_output_folder = 'graph-data'
+    graph_output_folder = dataset + '-graph-data'
     yTr = np.load('./' + graph_output_folder + '/form_data/yTr' + str(fold_n) + '.npy')
     # yTr = np.load('./' + graph_output_folder + '/form_data/y_split1.npy')
+    unique_numbers, occurrences = np.unique(yTr, return_counts=True)
+    num_class = len(unique_numbers)
     dl_input_num = yTr.shape[0]
     epoch_iteration = int(dl_input_num / prog_args.batch_size)
     start_iter_num = prog_args.num_epochs * epoch_iteration
-    train_geogat(prog_args, fold_n, load_path, start_iter_num, device, graph_output_folder)
-
-    # ### Test the model
-    # # TEST [FOLD-1]
-    # fold_n = 1
-    # model = build_geogat_model(prog_args, device, graph_output_folder)
-    # test_load_path = './' + graph_output_folder + '/result/epoch_60/best_train_model.pt'
-    # model.load_state_dict(torch.load(test_load_path, map_location=device))
-    # test_save_path = './' + graph_output_folder + '/result/epoch_60'
-    # i = 60  # epoch number
-    # test_geogat(prog_args, fold_n, model, test_save_path, device, dataset, i)
+    train_geogat(prog_args, fold_n, load_path, start_iter_num, device, graph_output_folder, num_class)

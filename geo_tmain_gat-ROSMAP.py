@@ -12,7 +12,7 @@ from torch.autograd import Variable
 import utils
 from geo_loader.read_geograph import read_batch
 from geo_loader.geograph_sampler import GeoGraphLoader
-from enc_dec.geo_gcn_decoder import GCNDecoder
+from enc_dec.geo_gat_decoder import GATDecoder
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, precision_score, recall_score
 
 # Parse arguments from command line
@@ -53,11 +53,12 @@ def arg_parse():
                         parallel = False,
                         add_self = '0', # 'add'
                         model = '0', # 'load'
-                        lr = 0.05,
+                        lr = 0.008,
                         clip = 2.0,
-                        batch_size = 1024,
+                        batch_size = 16,
                         num_workers = 1,
                         num_epochs = 100,
+                        num_head = 2,
                         input_dim = 8,
                         hidden_dim = 24,
                         output_dim = 24,
@@ -66,28 +67,32 @@ def arg_parse():
 
 
 def learning_rate_schedule(args, dl_input_num, iteration_num, e1, e2, e3, e4):
+    t1 = 0.005
+    t2 = 0.001
+    t3 = 0.0005
+    t4 = 0.0001
     epoch_iteration = int(dl_input_num / args.batch_size)
-    l1 = (args.lr - 0.008) / (e1 * epoch_iteration)
-    l2 = (0.008 - 0.006) / (e2 * epoch_iteration)
-    l3 = (0.006 - 0.005) / (e3 * epoch_iteration)
-    l4 = (0.005 - 0.001) / (e4 * epoch_iteration)
-    l5 = 0.001
+    l1 = (args.lr - t1) / (e1 * epoch_iteration)
+    l2 = (t1 - t2) / (e2 * epoch_iteration)
+    l3 = (t2 - t3) / (e3 * epoch_iteration)
+    l4 = (t3 - t4) / (e4 * epoch_iteration)
+    l5 = t4
     if iteration_num <= (e1 * epoch_iteration):
         learning_rate = args.lr - iteration_num * l1
     elif iteration_num <= (e1 + e2) * epoch_iteration:
-        learning_rate = 0.008 - (iteration_num - e1 * epoch_iteration) * l2
+        learning_rate = t1 - (iteration_num - e1 * epoch_iteration) * l2
     elif iteration_num <= (e1 + e2 + e3) * epoch_iteration:
-        learning_rate = 0.006 - (iteration_num - (e1 + e2) * epoch_iteration) * l3
+        learning_rate = t2 - (iteration_num - (e1 + e2) * epoch_iteration) * l3
     elif iteration_num <= (e1 + e2 + e3 + e4) * epoch_iteration:
-        learning_rate = 0.005 - (iteration_num - (e1 + e2 + e3) * epoch_iteration) * l4
+        learning_rate = t3 - (iteration_num - (e1 + e2 + e3) * epoch_iteration) * l4
     else:
         learning_rate = l5
     print('-------LEARNING RATE: ' + str(learning_rate) + '-------' )
     return learning_rate
 
 
-def build_geogcn_model(args, device, graph_output_folder):
-    print('--- BUILDING UP GCN MODEL ... ---')
+def build_geogat_model(args, device, graph_output_folder, num_class):
+    print('--- BUILDING UP GAT MODEL ... ---')
     # Get parameters
     # [num_gene, (adj)node_num]
     final_annotation_gene_df = pd.read_csv(os.path.join(graph_output_folder, 'map-all-gene.csv'))
@@ -98,13 +103,13 @@ def build_geogcn_model(args, device, graph_output_folder):
     num_edge = gene_num_edge_df.shape[0]
     # import pdb; pdb.set_trace()
     # Build up model
-    model = GCNDecoder(input_dim=args.input_dim, hidden_dim=args.hidden_dim, embedding_dim=args.output_dim, 
-                node_num=node_num, device=device)
+    model = GATDecoder(input_dim=args.input_dim, hidden_dim=args.hidden_dim, embedding_dim=args.output_dim, 
+                    node_num=node_num, num_head=args.num_head, device=device, num_class=num_class)
     model = model.to(device)
     return model
 
 
-def train_geogcn_model(dataset_loader, model, device, args, learning_rate):
+def train_geogat_model(dataset_loader, model, device, args, learning_rate):
     optimizer = torch.optim.Adam(filter(lambda p : p.requires_grad, model.parameters()), lr=learning_rate, eps=1e-7, weight_decay=1e-10)
     batch_loss = 0
     for batch_idx, data in enumerate(dataset_loader):
@@ -126,7 +131,7 @@ def train_geogcn_model(dataset_loader, model, device, args, learning_rate):
     return model, batch_loss, ypred
 
 
-def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_folder):
+def train_geogat(args, fold_n, load_path, iteration_num, device, graph_output_folder, num_class):
     # Training dataset basic parameters
     # [num_feature, num_node]
     num_feature = 8
@@ -141,7 +146,7 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
     edge_index = torch.from_numpy(np.load(form_data_path + '/edge_index.npy') ).long() 
 
     # Build [WeightBiGNN, DECODER] model
-    model = build_geogcn_model(args, device, graph_output_folder)
+    model = build_geogat_model(args, device, graph_output_folder, num_class)
     if args.model == 'load':
         model.load_state_dict(torch.load(load_path, map_location=device))
 
@@ -156,9 +161,9 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
         iteration_num = 0
     max_test_acc = 0
     max_test_acc_id = 0
-    e1 = 20
+    e1 = 50
     e2 = 20
-    e3 = 10
+    e3 = 20
     e4 = 10
     epoch_loss_list = []
     epoch_acc_list = []
@@ -197,7 +202,7 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
             iteration_num += 1
             learning_rate = learning_rate_schedule(args, dl_input_num, iteration_num, e1, e2, e3, e4)
             print('TRAINING MODEL...')
-            model, batch_loss, batch_ypred = train_geogcn_model(dataset_loader, model, device, args, learning_rate)
+            model, batch_loss, batch_ypred = train_geogat_model(dataset_loader, model, device, args, learning_rate)
             print('BATCH LOSS: ', batch_loss)
             batch_loss_list.append(batch_loss)
             # Preserve prediction of batch training data
@@ -238,7 +243,7 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
         # # # Test model on test dataset
         # fold_n = 1
         test_save_path = path
-        test_acc, test_loss, tmp_test_input_df = test_geogcn(prog_args, fold_n, model, test_save_path, device, graph_output_folder, i)
+        test_acc, test_loss, tmp_test_input_df = test_geogat(prog_args, fold_n, model, test_save_path, device, graph_output_folder, i)
         test_acc_list.append(test_acc)
         test_loss_list.append(test_loss)
         tmp_test_input_df.to_csv(path + '/TestPred' + str(i) + '.txt', index=False, header=True)
@@ -262,7 +267,7 @@ def train_geogcn(args, fold_n, load_path, iteration_num, device, graph_output_fo
         torch.save(model.state_dict(), path + '/best_train_model.pt')
 
 
-def test_geogcn_model(dataset_loader, model, device, args):
+def test_geogat_model(dataset_loader, model, device, args):
     batch_loss = 0
     for batch_idx, data in enumerate(dataset_loader):
         x = Variable(data.x, requires_grad=False).to(device)
@@ -275,7 +280,7 @@ def test_geogcn_model(dataset_loader, model, device, args):
     return model, batch_loss, ypred
 
 
-def test_geogcn(args, fold_n, model, test_save_path, device, graph_output_folder, i):
+def test_geogat(args, fold_n, model, test_save_path, device, graph_output_folder, i):
     print('-------------------------- TEST START --------------------------')
     print('-------------------------- TEST START --------------------------')
     print('-------------------------- TEST START --------------------------')
@@ -310,7 +315,7 @@ def test_geogcn(args, fold_n, model, test_save_path, device, graph_output_folder
         dataset_loader, node_num, feature_dim = GeoGraphLoader.load_graph(geo_datalist, args)
         print('TEST MODEL...')
         # import pdb; pdb.set_trace()
-        model, batch_loss, batch_ypred = test_geogcn_model(dataset_loader, model, device, args)
+        model, batch_loss, batch_ypred = test_geogat_model(dataset_loader, model, device, args)
         print('BATCH LOSS: ', batch_loss)
         batch_loss_list.append(batch_loss)
         # Preserve prediction of batch test data
@@ -356,6 +361,9 @@ if __name__ == "__main__":
     # Single gpu
     prog_args.gpu_ids = [0]
     os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+
+    # Dataset Selection
+    dataset = 'ROSMAP'
     
     ### Train the model
     # Train [FOLD-1x]
@@ -366,17 +374,9 @@ if __name__ == "__main__":
     graph_output_folder = 'graph-data'
     yTr = np.load('./' + graph_output_folder + '/form_data/yTr' + str(fold_n) + '.npy')
     # yTr = np.load('./' + graph_output_folder + '/form_data/y_split1.npy')
+    unique_numbers, occurrences = np.unique(yTr, return_counts=True)
+    num_class = len(unique_numbers)
     dl_input_num = yTr.shape[0]
     epoch_iteration = int(dl_input_num / prog_args.batch_size)
-    start_iter_num = 100 * epoch_iteration
-    train_geogcn(prog_args, fold_n, load_path, start_iter_num, device, graph_output_folder)
-
-    # ### Test the model
-    # # TEST [FOLD-1]
-    # fold_n = 1
-    # model = build_geogcn_model(prog_args, device, graph_output_folder)
-    # test_load_path = './' + graph_output_folder + '/result/epoch_60/best_train_model.pt'
-    # model.load_state_dict(torch.load(test_load_path, map_location=device))
-    # test_save_path = './' + graph_output_folder + '/result/epoch_60'
-    # i = 60  # epoch number
-    # test_geogcn(prog_args, fold_n, model, test_save_path, device, dataset, i)
+    start_iter_num = prog_args.num_epochs * epoch_iteration
+    train_geogat(prog_args, fold_n, load_path, start_iter_num, device, graph_output_folder, num_class)

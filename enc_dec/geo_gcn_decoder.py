@@ -45,8 +45,9 @@ class GCNConv(MessagePassing):
 
 
 class GCNDecoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, embedding_dim, node_num, device):
+    def __init__(self, input_dim, hidden_dim, embedding_dim, node_num, device, num_class):
         super(GCNDecoder, self).__init__()
+        self.num_class = num_class
         self.node_num = node_num
         self.embedding_dim = embedding_dim
         self.conv_first, self.conv_block, self.conv_last = self.build_conv_layer(
@@ -66,7 +67,7 @@ class GCNDecoder(nn.Module):
         self.softmax_aggr = aggr.SoftmaxAggregation(learn=True)
         self.powermean_aggr = aggr.PowerMeanAggregation(learn=True)
 
-        self.graph_prediction = torch.nn.Linear(embedding_dim, 2)
+        self.graph_prediction = torch.nn.Linear(embedding_dim, num_class)
 
     def build_conv_layer(self, input_dim, hidden_dim, embedding_dim):
         conv_first = GCNConv(in_channels=input_dim, out_channels=hidden_dim)
@@ -97,15 +98,16 @@ class GCNDecoder(nn.Module):
 
 
     def loss(self, output, label):
-        # Calculating unique values
-        unique_classes = torch.unique(label)
-        num_classes = len(unique_classes)
+        num_class = self.num_class
         # Use weight vector to balance the loss
-        weight_vector = torch.zeros([num_classes]).to(device='cuda')
+        weight_vector = torch.zeros([num_class]).to(device='cuda')
         label = label.long()
-        for i in range(num_classes):
+        for i in range(num_class):
             n_samplei = torch.sum(label == i)
-            weight_vector[i] = len(label) / (n_samplei)
+            if n_samplei == 0:
+                weight_vector[i] = 0
+            else:
+                weight_vector[i] = len(label) / (n_samplei)
         # Calculate the loss
         output = torch.log_softmax(output, dim=-1)
         loss = F.nll_loss(output, label, weight_vector)
