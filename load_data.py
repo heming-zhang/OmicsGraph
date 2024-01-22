@@ -395,31 +395,31 @@ if __name__ == "__main__":
     # dataset = 'UCSC'
     dataset = 'ROSMAP'
 
-    ############# MOUDLE 1 #################
-    ### Load all split data into graph format
-    graph_output_folder = dataset + '-graph-data'
-    processed_dataset = dataset + '-process'
-    if os.path.exists('./' +graph_output_folder + '/form_data') == False:
-        os.mkdir('./' +graph_output_folder + '/form_data')
-    k = 5
-    batch_size = 64
-    if dataset == 'UCSC':
-        UCSC_LoadData().load_all_split(batch_size, k, processed_dataset, graph_output_folder)
-    elif dataset == 'ROSMAP':
-        ROSMAP_LoadData().load_all_split(batch_size, k, processed_dataset, graph_output_folder)
+    # ############# MOUDLE 1 #################
+    # ### Load all split data into graph format
+    # graph_output_folder = dataset + '-graph-data'
+    # processed_dataset = dataset + '-process'
+    # if os.path.exists('./' +graph_output_folder + '/form_data') == False:
+    #     os.mkdir('./' +graph_output_folder + '/form_data')
+    # k = 5
+    # batch_size = 64
+    # if dataset == 'UCSC':
+    #     UCSC_LoadData().load_all_split(batch_size, k, processed_dataset, graph_output_folder)
+    # elif dataset == 'ROSMAP':
+    #     ROSMAP_LoadData().load_all_split(batch_size, k, processed_dataset, graph_output_folder)
 
-    ############## MOUDLE 2 #################
-    graph_output_folder = dataset + '-graph-data'
-    processed_dataset = dataset + '-process'
-    if dataset == 'UCSC':
-        UCSC_LoadData().load_adj_edgeindex(graph_output_folder)
-    elif dataset == 'ROSMAP':
-        ROSMAP_LoadData().load_adj_edgeindex(graph_output_folder)
+    # ############## MOUDLE 2 #################
+    # graph_output_folder = dataset + '-graph-data'
+    # processed_dataset = dataset + '-process'
+    # if dataset == 'UCSC':
+    #     UCSC_LoadData().load_adj_edgeindex(graph_output_folder)
+    # elif dataset == 'ROSMAP':
+    #     ROSMAP_LoadData().load_adj_edgeindex(graph_output_folder)
 
     ################ MOUDLE 3 ###############
     # FORM N-TH FOLD TRAINING DATASET
     k = 5
-    n_fold = 1
+    n_fold = 5
     graph_output_folder = dataset + '-graph-data'
     if dataset == 'UCSC':
         UCSC_LoadData().load_train_test(k, n_fold, graph_output_folder)
@@ -427,7 +427,7 @@ if __name__ == "__main__":
         ROSMAP_LoadData().load_train_test(k, n_fold, graph_output_folder)
 
     # Check the default ratio of survival
-    n_fold = 1
+    n_fold = 5
     graph_output_folder = dataset + '-graph-data'
     form_data_path = './' + graph_output_folder + '/form_data'
     yTr =  np.load(form_data_path + '/yTr' + str(n_fold) + '.npy')

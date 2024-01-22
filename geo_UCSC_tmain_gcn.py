@@ -55,12 +55,12 @@ def arg_parse():
                         model = '0', # 'load'
                         lr = 0.05,
                         clip = 2.0,
-                        batch_size = 512,
+                        batch_size = 256,
                         num_workers = 1,
-                        num_epochs = 100,
+                        num_epochs = 50,
                         input_dim = 8,
-                        hidden_dim = 24,
-                        output_dim = 24,
+                        hidden_dim = 48,
+                        output_dim = 48,
                         dropout = 0.01)
     return parser.parse_args()
 
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     
     ### Train the model
     # Train [FOLD-1x]
-    fold_n = 1
+    fold_n = 5
     # prog_args.model = 'load'
     # load_path = './' + dataset + '-result/epoch_60_1/best_train_model.pt'
     load_path = ''
