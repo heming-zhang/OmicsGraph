@@ -57,9 +57,9 @@ def arg_parse():
                         clip = 2.0,
                         batch_size = 16,
                         num_workers = 1,
-                        num_epochs = 100,
+                        num_epochs = 50,
                         num_head = 2,
-                        input_dim = 8,
+                        input_dim = 10,
                         hidden_dim = 24,
                         output_dim = 24,
                         dropout = 0.01)
@@ -134,7 +134,7 @@ def train_geogat_model(dataset_loader, model, device, args, learning_rate):
 def train_geogat(args, fold_n, load_path, iteration_num, device, graph_output_folder, num_class):
     # Training dataset basic parameters
     # [num_feature, num_node]
-    num_feature = 8
+    num_feature = 10
     final_annotation_gene_df = pd.read_csv(os.path.join(graph_output_folder, 'map-all-gene.csv'))
     gene_name_list = list(final_annotation_gene_df['Gene_name'])
     num_node = len(gene_name_list)
@@ -171,12 +171,12 @@ def train_geogat(args, fold_n, load_path, iteration_num, device, graph_output_fo
     test_acc_list = []
     # Clean result previous epoch_i_pred files
     folder_name = 'epoch_' + str(epoch_num)
-    path = './result/%s' % (folder_name)
+    path = './' + dataset + '-result/%s' % (folder_name)
     unit = 1
-    while os.path.exists('./result') == False:
-        os.mkdir('./result')
+    while os.path.exists('./' + dataset + '-result') == False:
+        os.mkdir('./' + dataset + '-result')
     while os.path.exists(path):
-        path = './result/%s_%d' % (folder_name, unit)
+        path = './' + dataset + '-result/%s_%d' % (folder_name, unit)
         unit += 1
     os.mkdir(path)
     # import pdb; pdb.set_trace()
@@ -223,18 +223,9 @@ def train_geogat(args, fold_n, load_path, iteration_num, device, graph_output_fo
         # pdb.set_trace()
         # Calculating metrics
         accuracy = accuracy_score(tmp_training_input_df['label'], tmp_training_input_df['prediction'])
-        f1 = f1_score(tmp_training_input_df['label'], tmp_training_input_df['prediction'])
-        precision = precision_score(tmp_training_input_df['label'], tmp_training_input_df['prediction'])
-        recall = recall_score(tmp_training_input_df['label'], tmp_training_input_df['prediction'])  # Sensitivity
-        tn, fp, fn, tp = confusion_matrix(tmp_training_input_df['label'], tmp_training_input_df['prediction']).ravel()
-        specificity = tn / (tn+fp) if (tn+fp) != 0 else 0
         epoch_acc_list.append(accuracy)
         tmp_training_input_df.to_csv(path + '/TrainingPred_' + str(i) + '.txt', index=False, header=True)
         print('EPOCH ' + str(i) + ' TRAINING ACCURACY: ', accuracy)
-        print('EPOCH ' + str(i) + ' TRAINING F1: ', f1)
-        print('EPOCH ' + str(i) + ' TRAINING PRECISION: ', precision)
-        print('EPOCH ' + str(i) + ' TRAINING RECALL: ', recall)
-        print('EPOCH ' + str(i) + ' TRAINING SPECIFICITY: ', specificity)
         print('\n-------------EPOCH TRAINING ACCURACY LIST: -------------')
         print(epoch_acc_list)
         print('\n-------------EPOCH TRAINING LOSS LIST: -------------')
@@ -297,7 +288,7 @@ def test_geogat(args, fold_n, model, test_save_path, device, graph_output_folder
     # Clean result previous epoch_i_pred files
     path = test_save_path
     # [num_feature, num_node]
-    num_feature = 8
+    num_feature = 10
     final_annotation_gene_df = pd.read_csv(os.path.join(graph_output_folder, 'map-all-gene.csv'))
     gene_name_list = list(final_annotation_gene_df['Gene_name'])
     num_node = len(gene_name_list)
@@ -332,19 +323,8 @@ def test_geogat(args, fold_n, model, test_save_path, device, graph_output_folder
     test_dict = {'label': score_list, 'prediction': all_ypred_list}
     tmp_test_input_df = pd.DataFrame(test_dict)
     # Calculating metrics
-    accuracy = accuracy_score(tmp_test_input_df['label'], tmp_test_input_df['prediction'])
-    f1 = f1_score(tmp_test_input_df['label'], tmp_test_input_df['prediction'])
-    precision = precision_score(tmp_test_input_df['label'], tmp_test_input_df['prediction'])
-    recall = recall_score(tmp_test_input_df['label'], tmp_test_input_df['prediction'])  # Sensitivity
-    tn, fp, fn, tp = confusion_matrix(tmp_test_input_df['label'], tmp_test_input_df['prediction']).ravel()
-    specificity = tn / (tn+fp) if (tn+fp) != 0 else 0
-
-    print('EPOCH ' + str(i) + ' TEST ACCURACY: ', accuracy)
-    print('EPOCH ' + str(i) + ' TEST F1: ', f1)
-    print('EPOCH ' + str(i) + ' TEST PRECISION: ', precision)
-    print('EPOCH ' + str(i) + ' TEST RECALL: ', recall)
-    print('EPOCH ' + str(i) + ' TEST SPECIFICITY: ', specificity)
-    test_acc = accuracy
+    test_acc = accuracy_score(tmp_test_input_df['label'], tmp_test_input_df['prediction'])
+    print('EPOCH ' + str(i) + ' TEST ACCURACY: ', test_acc)
     return test_acc, test_loss, tmp_test_input_df
 
 
@@ -367,11 +347,11 @@ if __name__ == "__main__":
     
     ### Train the model
     # Train [FOLD-1x]
-    fold_n = 1
+    fold_n = 5
     # prog_args.model = 'load'
     # load_path = './result/epoch_60_1/best_train_model.pt'
     load_path = ''
-    graph_output_folder = 'graph-data'
+    graph_output_folder = dataset + '-graph-data'
     yTr = np.load('./' + graph_output_folder + '/form_data/yTr' + str(fold_n) + '.npy')
     # yTr = np.load('./' + graph_output_folder + '/form_data/y_split1.npy')
     unique_numbers, occurrences = np.unique(yTr, return_counts=True)

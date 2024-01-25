@@ -59,7 +59,7 @@ def arg_parse():
                         num_workers = 1,
                         num_epochs = 50,
                         num_head = 2,
-                        input_dim = 8,
+                        input_dim = 10,
                         hidden_dim = 24,
                         output_dim = 24,
                         dropout = 0.01)
@@ -91,7 +91,7 @@ def learning_rate_schedule(args, dl_input_num, iteration_num, e1, e2, e3, e4):
     return learning_rate
 
 
-def build_geogformer_model(args, device, graph_output_folder):
+def build_geogformer_model(args, device, graph_output_folder, num_class):
     print('--- BUILDING UP GraphFormer MODEL ... ---')
     # Get parameters
     # [num_gene, (adj)node_num]
@@ -146,7 +146,7 @@ def train_geogformer(args, fold_n, load_path, iteration_num, device, graph_outpu
     edge_index = torch.from_numpy(np.load(form_data_path + '/edge_index.npy') ).long() 
 
     # Build [WeightBiGNN, DECODER] model
-    model = build_geogformer_model(args, device, graph_output_folder)
+    model = build_geogformer_model(args, device, graph_output_folder, num_class)
     if args.model == 'load':
         model.load_state_dict(torch.load(load_path, map_location=device))
 
@@ -223,6 +223,7 @@ def train_geogformer(args, fold_n, load_path, iteration_num, device, graph_outpu
         # Calculating metrics
         accuracy = accuracy_score(tmp_training_input_df['label'], tmp_training_input_df['prediction'])
         tmp_training_input_df.to_csv(path + '/TrainingPred_' + str(i) + '.txt', index=False, header=True)
+        epoch_acc_list.append(accuracy)
         print('EPOCH ' + str(i) + ' TRAINING ACCURACY: ', accuracy)
         print('\n-------------EPOCH TRAINING ACCURACY LIST: -------------')
         print(epoch_acc_list)
@@ -345,7 +346,7 @@ if __name__ == "__main__":
     
     ### Train the model
     # Train [FOLD-1x]
-    fold_n = 1
+    fold_n = 5
     # prog_args.model = 'load'
     # load_path = './result/epoch_60_1/best_train_model.pt'
     load_path = ''

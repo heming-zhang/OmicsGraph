@@ -90,7 +90,7 @@ def learning_rate_schedule(args, dl_input_num, iteration_num, e1, e2, e3, e4):
     return learning_rate
 
 
-def build_geogin_model(args, device, graph_output_folder):
+def build_geogin_model(args, device, graph_output_folder, num_class):
     print('--- BUILDING UP GIN MODEL ... ---')
     # Get parameters
     # [num_gene, (adj)node_num]
@@ -145,7 +145,7 @@ def train_geogin(args, fold_n, load_path, iteration_num, device, graph_output_fo
     edge_index = torch.from_numpy(np.load(form_data_path + '/edge_index.npy') ).long() 
 
     # Build [WeightBiGNN, DECODER] model
-    model = build_geogin_model(args, device, graph_output_folder)
+    model = build_geogin_model(args, device, graph_output_folder, num_class)
     if args.model == 'load':
         model.load_state_dict(torch.load(load_path, map_location=device))
 
@@ -366,7 +366,7 @@ if __name__ == "__main__":
     
     ### Train the model
     # Train [FOLD-1x]
-    fold_n = 1
+    fold_n = 5
     # prog_args.model = 'load'
     # load_path = './result/epoch_60_1/best_train_model.pt'
     load_path = ''
