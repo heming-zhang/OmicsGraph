@@ -13,7 +13,8 @@ round_df <- function(df, digits) {
 }
 
 ### 1. READ GRAPH [edge_index, node] FROM FILES
-setwd('C:/Users/hemingzhang/Documents/vs-files/OmicsGraph')
+# setwd('C:/Users/hemingzhang/Documents/vs-files/OmicsGraph')
+setwd('/Users/muhaha/Files/VS-Files/OmicsGraph')
 net_edge_weight = read.csv('./UCSC-analysis/fold_1/fold_avg_edge_weight_df.csv')
 colnames(net_edge_weight)[1] <- 'From'
 colnames(net_edge_weight)[2] <- 'To' 
@@ -30,7 +31,7 @@ tmp_net = graph_from_data_frame(d=filter_net_edge, vertices=filter_net_node, dir
 all_components = groups(components(tmp_net))
 # COLLECT ALL LARGE COMPONENTS
 giant_comp_node = c()
-giant_comp_threshold = 10
+giant_comp_threshold = 20
 for (x in 1:length(all_components)){
   each_comp = all_components[[x]]
   if (length(each_comp) >= giant_comp_threshold){
@@ -56,9 +57,9 @@ vertex_col[V(net)$NodeType=='Gene-PROT'] = 'gray'
 # vertex size
 vertex_size = rep(5.0, vcount(net))
 # vertex cex
-vertex_cex = rep(0.3, vcount(net))
+vertex_cex = rep(0.5, vcount(net))
 # edge width
-edge_width = rep(0.5, ecount(net))
+edge_width = rep(2, ecount(net))
 # edge color
 edge_color = rep('gray', ecount(net))
 edge_color[E(net)$EdgeType=='Gene-TRAN-Gene-PROT'] = 'mediumpurple1'
@@ -78,13 +79,13 @@ plot(net,
      edge.width = edge_width,
      edge.color = edge_color,
      edge.curved = 0.2,
-     layout=layout_with_dh)
+     layout=layout_nicely)
 ### ADD LEGEND
-legend(x=-1.25, y= 1.1, legend=c('Genes', 'Promoters', 'Proteins'), pch=c(21,21,22),
-       pt.bg=c('mediumpurple1', 'plum1', 'gray'), pt.cex=2, cex=1.2, bty='n')
-legend(x=-1.25, y= 0.98,
+legend(x=-1.15, y= -0.3, legend=c('Genes', 'Promoters', 'Proteins'), pch=c(21,21,21),
+       pt.bg=c('mediumpurple1', 'plum1', 'gray'), pt.cex=4.5, cex=0.8, bty='n')
+legend(x=-1.15, y= -0.7,
        legend=c('Protein-Protein', 'Gene-Protein', 'Promoter-Gene'),
-       col=c('gray', 'mediumpurple1', 'plum1'), lwd=c(5,5), cex=1.2, bty='n')
+       col=c('gray', 'mediumpurple1', 'plum1'), lwd=c(4.5, 4.5), cex=0.8, bty='n')
 
 
 # layout=layout_nicely
